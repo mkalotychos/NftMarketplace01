@@ -1,0 +1,62 @@
+[profile.default]
+src = "contracts/src"
+out = "contracts/out"
+libs = ["contracts/lib"]
+test = "contracts/test"
+script = "contracts/script"
+cache_path = "contracts/cache"
+
+# Remappings for dependencies
+remappings = [
+    "@openzeppelin/contracts/=contracts/lib/openzeppelin-contracts/contracts/",
+    "forge-std/=contracts/lib/openzeppelin-contracts/lib/forge-std/src/",
+]
+
+# Compiler settings
+solc_version = "0.8.24"
+offline = false
+
+# File system permissions for deployment scripts
+fs_permissions = [
+    { access = "read-write", path = "./deployments" },
+    { access = "read", path = "./contracts" },
+]
+optimizer = true
+optimizer_runs = 200
+via_ir = false
+
+# Gas reporting
+gas_reports = ["*"]
+
+# Testing
+fuzz = { runs = 256 }
+invariant = { runs = 256 }
+
+[profile.ci]
+fuzz = { runs = 10000 }
+invariant = { runs = 10000 }
+
+# Formatting settings
+[fmt]
+line_length = 120
+tab_width = 4
+bracket_spacing = false
+int_types = "long"
+multiline_func_header = "all"
+quote_style = "double"
+number_underscore = "thousands"
+
+# RPC endpoints
+[rpc_endpoints]
+localhost = "http://127.0.0.1:8545"
+sepolia = "${SEPOLIA_RPC_URL}"
+polygon_mumbai = "${POLYGON_MUMBAI_RPC_URL}"
+polygon = "${POLYGON_RPC_URL}"
+mainnet = "${MAINNET_RPC_URL}"
+
+# Block explorer API keys for verification
+[etherscan]
+sepolia = { key = "${ETHERSCAN_API_KEY}" }
+polygon = { key = "${POLYGONSCAN_API_KEY}" }
+polygon_mumbai = { key = "${POLYGONSCAN_API_KEY}" }
+mainnet = { key = "${ETHERSCAN_API_KEY}" }
