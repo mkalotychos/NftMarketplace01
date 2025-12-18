@@ -9,6 +9,9 @@ interface ImportMetaEnv {
     readonly VITE_MARKETPLACE_CONTRACT_ADDRESS: string
     readonly VITE_CHAIN_ID: string
     readonly VITE_NETWORK_NAME: string
+    // Alchemy
+    readonly VITE_ALCHEMY_API_KEY: string
+    readonly VITE_ALCHEMY_NETWORK: string
 }
 
 interface ImportMeta {

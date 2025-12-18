@@ -16,6 +16,7 @@ A full-stack decentralized NFT marketplace built with React, TypeScript, and Sol
 - 📱 **Responsive Design** - Beautiful UI on all devices
 - ⛽ **Gas Optimized** - Efficient smart contract design
 - 🔒 **Secure** - Built with OpenZeppelin contracts
+- ⚡ **Alchemy SDK** - Fast NFT data fetching with enhanced APIs
 
 ## Tech Stack
 
@@ -23,24 +24,50 @@ A full-stack decentralized NFT marketplace built with React, TypeScript, and Sol
 - React 18 with TypeScript
 - Vite for fast development
 - Tailwind CSS for styling
-- ethers.js v6 for Web3 integration
+- ethers.js v6 for Web3 integration (write operations)
+- Alchemy SDK for NFT data (read operations)
 - React Router for navigation
 - Lucide React for icons
 
 ### Smart Contracts
-- Solidity 0.8.23
+- Solidity 0.8.24
 - Foundry for development & testing
-- OpenZeppelin contracts (ERC-721, Ownable, ReentrancyGuard)
+- OpenZeppelin contracts v5 (ERC-721, Ownable, ReentrancyGuard)
 
-### Storage
+### Storage & APIs
 - IPFS via Pinata for decentralized storage
+- Alchemy for blockchain data & RPC
 
 ## Prerequisites
 
 - [Node.js](https://nodejs.org/) v18+
 - [Foundry](https://book.getfoundry.sh/getting-started/installation) (forge, anvil, cast)
 - [MetaMask](https://metamask.io/) browser extension
+- [Alchemy](https://alchemy.com/) account (free tier available) - for RPC & NFT APIs
 - [Pinata](https://pinata.cloud/) account for IPFS (optional for development)
+
+## API Keys Setup
+
+### 1. Alchemy (Required for Production)
+
+1. Create account at [alchemy.com](https://alchemy.com)
+2. Create a new app for your network (Sepolia/Mainnet)
+3. Copy your API key
+4. Add to `.env`:
+   ```env
+   VITE_ALCHEMY_API_KEY=your_alchemy_api_key
+   VITE_ALCHEMY_NETWORK=sepolia
+   ```
+
+### 2. Pinata (Required for NFT Uploads)
+
+1. Create account at [pinata.cloud](https://pinata.cloud)
+2. Go to API Keys → New Key
+3. Add to `.env`:
+   ```env
+   VITE_PINATA_API_KEY=your_api_key
+   VITE_PINATA_SECRET_KEY=your_secret_key
+   ```
 
 ## Installation
 

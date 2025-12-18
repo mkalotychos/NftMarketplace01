@@ -1,8 +1,16 @@
-import { useState, useCallback, useMemo } from 'react';
+import { useState, useCallback, useMemo, useEffect } from 'react';
 import { Contract, BrowserProvider, parseEther, formatEther } from 'ethers';
 import { NFT_ABI, MARKETPLACE_ABI } from '../contracts/abis';
 import { getContractAddresses } from '../contracts/addresses';
 import { parseContractError, ipfsToHttp, retry } from '../utils';
+import {
+    getOwnedNFTs as alchemyGetOwnedNFTs,
+    getNFTMetadata as alchemyGetNFTMetadata,
+    getContractNFTs as alchemyGetContractNFTs,
+    subscribeToContractEvents,
+    isAlchemyConfigured,
+    resetAlchemyInstance,
+} from '../utils/alchemy';
 import type { NFT, ListedNFT, Listing, TransactionStatus } from '../types';
 
 interface TransactionState {
@@ -36,6 +44,9 @@ interface UseNFTContractReturn {
 
     // Contract instances
     isReady: boolean;
+
+    // Alchemy status
+    useAlchemy: boolean;
 }
 
 export function useNFTContract(
@@ -47,6 +58,20 @@ export function useNFTContract(
         hash: null,
         error: null,
     });
+
+    // Check if Alchemy is available and configured
+    const useAlchemy = useMemo(() => {
+        // Only use Alchemy for supported networks (not localhost)
+        const supportedChains = [1, 11155111, 137, 80001];
+        return isAlchemyConfigured() && chainId !== null && supportedChains.includes(chainId);
+    }, [chainId]);
+
+    // Reset Alchemy instance when chain changes
+    useEffect(() => {
+        if (chainId) {
+            resetAlchemyInstance();
+        }
+    }, [chainId]);
 
     // Get contract addresses for current chain
     const addresses = useMemo(() => {
@@ -79,7 +104,7 @@ export function useNFTContract(
         return provider.getSigner();
     }, [provider]);
 
-    // Fetch NFT metadata from URI
+    // Fetch NFT metadata from URI (fallback when Alchemy not available)
     const fetchMetadata = useCallback(async (tokenURI: string) => {
         try {
             const url = ipfsToHttp(tokenURI);
@@ -94,16 +119,46 @@ export function useNFTContract(
 
     // ============ READ FUNCTIONS ============
 
-    // Get all active listings
+    // Get all active listings (combines on-chain listing data with NFT metadata)
     const getListedNFTs = useCallback(async (
         offset = 0,
         limit = 50
     ): Promise<ListedNFT[]> => {
-        if (!contracts) return [];
+        if (!contracts || !addresses) return [];
 
         try {
+            // Get listing data from contract
             const [tokenIds, sellers, prices] = await contracts.marketplace.getActiveListings(offset, limit);
 
+            // If using Alchemy, get metadata from there
+            if (useAlchemy && chainId) {
+                const nfts: ListedNFT[] = await Promise.all(
+                    tokenIds.map(async (tokenId: bigint, index: number) => {
+                        const tokenIdStr = tokenId.toString();
+
+                        // Get NFT metadata from Alchemy
+                        const nftData = await alchemyGetNFTMetadata(addresses.nft, tokenIdStr, chainId);
+
+                        return {
+                            tokenId: tokenIdStr,
+                            name: nftData?.name || `NFT #${tokenIdStr}`,
+                            description: nftData?.description || '',
+                            image: nftData?.image || '',
+                            owner: nftData?.owner || sellers[index],
+                            tokenURI: nftData?.tokenURI || '',
+                            metadata: nftData?.metadata,
+                            attributes: nftData?.attributes,
+                            seller: sellers[index] as string,
+                            price: prices[index].toString(),
+                            priceFormatted: formatEther(prices[index]),
+                            isActive: true,
+                        };
+                    })
+                );
+                return nfts;
+            }
+
+            // Fallback: fetch metadata manually
             const nfts: ListedNFT[] = await Promise.all(
                 tokenIds.map(async (tokenId: bigint, index: number) => {
                     const tokenIdStr = tokenId.toString();
@@ -133,16 +188,23 @@ export function useNFTContract(
             console.error('Error fetching listed NFTs:', error);
             return [];
         }
-    }, [contracts, fetchMetadata]);
+    }, [contracts, addresses, useAlchemy, chainId, fetchMetadata]);
 
     // Get single NFT details
     const getNFTDetails = useCallback(async (tokenId: string): Promise<NFT | null> => {
-        if (!contracts) return null;
+        if (!contracts || !addresses) return null;
 
         try {
+            // Check if token exists
             const exists = await contracts.nft.exists(tokenId);
             if (!exists) return null;
 
+            // Use Alchemy if available
+            if (useAlchemy && chainId) {
+                return alchemyGetNFTMetadata(addresses.nft, tokenId, chainId);
+            }
+
+            // Fallback: fetch manually
             const [tokenURI, owner] = await Promise.all([
                 contracts.nft.tokenURI(tokenId),
                 contracts.nft.ownerOf(tokenId),
@@ -164,7 +226,7 @@ export function useNFTContract(
             console.error('Error fetching NFT details:', error);
             return null;
         }
-    }, [contracts, fetchMetadata]);
+    }, [contracts, addresses, useAlchemy, chainId, fetchMetadata]);
 
     // Get listing details
     const getListing = useCallback(async (tokenId: string): Promise<Listing | null> => {
@@ -187,14 +249,18 @@ export function useNFTContract(
 
     // Get NFTs owned by address
     const getOwnedNFTs = useCallback(async (owner: string): Promise<NFT[]> => {
-        if (!contracts) return [];
+        if (!contracts || !addresses) return [];
 
         try {
+            // Use Alchemy if available - much faster!
+            if (useAlchemy && chainId) {
+                return alchemyGetOwnedNFTs(owner, addresses.nft, chainId);
+            }
+
+            // Fallback: loop through all tokens (inefficient for large collections)
             const totalSupply = await contracts.nft.totalSupply();
             const nfts: NFT[] = [];
 
-            // Note: This is inefficient for large collections
-            // Consider implementing ERC721Enumerable for better performance
             for (let i = 0; i < totalSupply; i++) {
                 try {
                     const tokenOwner = await contracts.nft.ownerOf(i);
@@ -203,7 +269,6 @@ export function useNFTContract(
                         if (nft) nfts.push(nft);
                     }
                 } catch {
-                    // Token might be burned
                     continue;
                 }
             }
@@ -213,7 +278,7 @@ export function useNFTContract(
             console.error('Error fetching owned NFTs:', error);
             return [];
         }
-    }, [contracts, getNFTDetails]);
+    }, [contracts, addresses, useAlchemy, chainId, getNFTDetails]);
 
     // Get total supply
     const getTotalSupply = useCallback(async (): Promise<number> => {
@@ -494,8 +559,10 @@ export function useNFTContract(
 
         // Ready state
         isReady,
+
+        // Alchemy status
+        useAlchemy,
     };
 }
 
 export default useNFTContract;
-
