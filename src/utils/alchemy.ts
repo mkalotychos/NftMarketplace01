@@ -307,25 +307,48 @@ function getTokenUri(nft: OwnedNft | Nft): string {
     return '';
 }
 
+// Helper: Convert local IPFS gateway URLs to Pinata gateway
+function convertToHttpsGateway(url: string): string {
+    if (!url) return '';
+
+    // Handle subdomain-style IPFS gateway: http://CID.ipfs.localhost:8080/
+    const subdomainMatch = url.match(/https?:\/\/([a-zA-Z0-9]+)\.ipfs\.localhost/);
+    if (subdomainMatch) {
+        return `https://gateway.pinata.cloud/ipfs/${subdomainMatch[1]}`;
+    }
+
+    // Convert local IPFS gateway path style: http://127.0.0.1:8080/ipfs/CID
+    if (url.includes('127.0.0.1') || url.includes('localhost')) {
+        const match = url.match(/\/ipfs\/([a-zA-Z0-9]+)/);
+        if (match) {
+            return `https://gateway.pinata.cloud/ipfs/${match[1]}`;
+        }
+    }
+
+    // Convert ipfs:// protocol
+    if (url.startsWith('ipfs://')) {
+        return `https://gateway.pinata.cloud/ipfs/${url.replace('ipfs://', '')}`;
+    }
+
+    return url;
+}
+
 // Helper: Get best available image URL
 function getImageUrl(nft: OwnedNft | Nft): string {
     // Try image property first (v3 SDK structure)
     if (nft.image) {
-        if (nft.image.cachedUrl) return nft.image.cachedUrl;
-        if (nft.image.thumbnailUrl) return nft.image.thumbnailUrl;
-        if (nft.image.pngUrl) return nft.image.pngUrl;
-        if (nft.image.originalUrl) return nft.image.originalUrl;
+        // Prefer HTTPS gateway URLs
+        if (nft.image.cachedUrl) return convertToHttpsGateway(nft.image.cachedUrl);
+        if (nft.image.thumbnailUrl) return convertToHttpsGateway(nft.image.thumbnailUrl);
+        if (nft.image.pngUrl) return convertToHttpsGateway(nft.image.pngUrl);
+        if (nft.image.originalUrl) return convertToHttpsGateway(nft.image.originalUrl);
     }
 
     // Try raw metadata
     if (nft.raw?.metadata) {
         const metadata = nft.raw.metadata as NFTMetadata;
         if (metadata.image) {
-            const img = metadata.image;
-            if (img.startsWith('ipfs://')) {
-                return `https://gateway.pinata.cloud/ipfs/${img.replace('ipfs://', '')}`;
-            }
-            return img;
+            return convertToHttpsGateway(metadata.image);
         }
     }
 

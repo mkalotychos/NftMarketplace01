@@ -8,18 +8,18 @@ export const CONTRACT_ADDRESSES = {
         chainId: 31337,
     },
     sepolia: {
-        marketplace: '',
-        nft: '',
+        marketplace: import.meta.env.VITE_MARKETPLACE_CONTRACT_ADDRESS || '',
+        nft: import.meta.env.VITE_NFT_CONTRACT_ADDRESS || '',
         chainId: 11155111,
     },
     polygon: {
-        marketplace: '',
-        nft: '',
+        marketplace: import.meta.env.VITE_MARKETPLACE_CONTRACT_ADDRESS || '',
+        nft: import.meta.env.VITE_NFT_CONTRACT_ADDRESS || '',
         chainId: 137,
     },
     polygonMumbai: {
-        marketplace: '',
-        nft: '',
+        marketplace: import.meta.env.VITE_MARKETPLACE_CONTRACT_ADDRESS || '',
+        nft: import.meta.env.VITE_NFT_CONTRACT_ADDRESS || '',
         chainId: 80001,
     },
 } as const;

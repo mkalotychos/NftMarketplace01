@@ -356,7 +356,14 @@ export function useNFTContract(
         tokenURI: string,
         price: string
     ): Promise<string | null> => {
+        console.log('🎨 Starting mintAndList...');
+        console.log('📝 Token URI:', tokenURI);
+        console.log('💰 Price:', price);
+        console.log('📋 Contracts ready:', !!contracts);
+        console.log('🔗 Addresses:', addresses);
+
         if (!contracts) {
+            console.error('❌ Contracts not initialized');
             setTxState({ status: 'error', hash: null, error: 'Contracts not initialized' });
             return null;
         }
@@ -364,29 +371,43 @@ export function useNFTContract(
         setTxState({ status: 'pending', hash: null, error: null });
 
         try {
+            console.log('🔐 Getting signer...');
             const signer = await getSigner();
+            const signerAddress = await signer.getAddress();
+            console.log('✅ Signer address:', signerAddress);
+
             const marketplaceWithSigner = contracts.marketplace.connect(signer) as Contract;
+            console.log('📄 Marketplace contract address:', await marketplaceWithSigner.getAddress());
 
             const priceWei = parseEther(price);
+            console.log('💵 Price in Wei:', priceWei.toString());
+
+            console.log('📤 Sending mintAndList transaction...');
             const tx = await marketplaceWithSigner.mintAndList(tokenURI, priceWei);
+            console.log('✅ Transaction sent! Hash:', tx.hash);
             setTxState({ status: 'confirming', hash: tx.hash, error: null });
 
+            console.log('⏳ Waiting for confirmation...');
             const receipt = await tx.wait();
+            console.log('✅ Transaction confirmed! Block:', receipt.blockNumber);
 
             // Get token ID from event
             const event = receipt.logs.find(
                 (log: { fragment?: { name: string } }) => log.fragment?.name === 'NFTListed'
             );
             const tokenId = event?.args?.[0]?.toString() || null;
+            console.log('🎉 Minted token ID:', tokenId);
 
             setTxState({ status: 'success', hash: tx.hash, error: null });
             return tokenId;
         } catch (error) {
+            console.error('❌ mintAndList failed:', error);
             const message = parseContractError(error);
+            console.error('❌ Parsed error:', message);
             setTxState({ status: 'error', hash: null, error: message });
             return null;
         }
-    }, [contracts, getSigner]);
+    }, [contracts, addresses, getSigner]);
 
     // List NFT for sale
     const listNFT = useCallback(async (

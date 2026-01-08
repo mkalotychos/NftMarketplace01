@@ -4,11 +4,12 @@ import React, {
     useReducer,
     useCallback,
     useEffect,
+    useRef,
     ReactNode,
 } from 'react';
 import { useWalletContext } from './WalletContext';
 import { useNFTContract } from '../hooks/useNFTContract';
-import type { ListedNFT, NFT, FilterState, SortOption, StatusFilter } from '../types';
+import type { ListedNFT, NFT, FilterState, SortOption, TransactionStatus } from '../types';
 
 interface NFTState {
     listedNFTs: ListedNFT[];
@@ -32,9 +33,9 @@ type NFTAction =
     | { type: 'RESET_FILTERS' };
 
 interface NFTContextType extends NFTState {
-    // Data fetching
-    fetchListedNFTs: () => Promise<void>;
-    fetchOwnedNFTs: () => Promise<void>;
+    // Data fetching (force=true to bypass cache)
+    fetchListedNFTs: (force?: boolean) => Promise<void>;
+    fetchOwnedNFTs: (force?: boolean) => Promise<void>;
     refreshNFT: (tokenId: string) => Promise<NFT | null>;
 
     // Contract interactions (from hook)
@@ -52,7 +53,7 @@ interface NFTContextType extends NFTState {
 
     // Transaction state
     txState: {
-        status: string;
+        status: TransactionStatus;
         hash: string | null;
         error: string | null;
     };
@@ -121,10 +122,21 @@ export function NFTProvider({ children }: NFTProviderProps) {
 
     const contract = useNFTContract(provider, chainId);
 
+    // Refs to prevent infinite loops and duplicate fetches
+    const hasFetchedListed = useRef(false);
+    const hasFetchedOwned = useRef<string | null>(null);
+    const isFetchingListed = useRef(false);
+    const isFetchingOwned = useRef(false);
+
     // Fetch listed NFTs
-    const fetchListedNFTs = useCallback(async () => {
+    const fetchListedNFTs = useCallback(async (force = false) => {
         if (!contract.isReady) return;
 
+        // Prevent duplicate fetches
+        if (isFetchingListed.current) return;
+        if (!force && hasFetchedListed.current) return;
+
+        isFetchingListed.current = true;
         dispatch({ type: 'SET_LOADING', payload: true });
         dispatch({ type: 'SET_ERROR', payload: null });
 
@@ -140,29 +152,38 @@ export function NFTProvider({ children }: NFTProviderProps) {
                 type: 'SET_STATS',
                 payload: { totalSupply, activeListingCount: activeCount },
             });
+            hasFetchedListed.current = true;
         } catch (error) {
             console.error('Error fetching NFTs:', error);
             dispatch({ type: 'SET_ERROR', payload: 'Failed to fetch NFTs' });
         } finally {
             dispatch({ type: 'SET_LOADING', payload: false });
+            isFetchingListed.current = false;
         }
-    }, [contract]);
+    }, [contract.isReady, contract.getListedNFTs, contract.getTotalSupply, contract.getActiveListingCount]);
 
     // Fetch owned NFTs
-    const fetchOwnedNFTs = useCallback(async () => {
+    const fetchOwnedNFTs = useCallback(async (force = false) => {
         if (!contract.isReady || !account) return;
 
+        // Prevent duplicate fetches for same account
+        if (isFetchingOwned.current) return;
+        if (!force && hasFetchedOwned.current === account) return;
+
+        isFetchingOwned.current = true;
         dispatch({ type: 'SET_LOADING_OWNED', payload: true });
 
         try {
             const nfts = await contract.getOwnedNFTs(account);
             dispatch({ type: 'SET_OWNED_NFTS', payload: nfts });
+            hasFetchedOwned.current = account;
         } catch (error) {
             console.error('Error fetching owned NFTs:', error);
         } finally {
             dispatch({ type: 'SET_LOADING_OWNED', payload: false });
+            isFetchingOwned.current = false;
         }
-    }, [contract, account]);
+    }, [contract.isReady, contract.getOwnedNFTs, account]);
 
     // Refresh single NFT
     const refreshNFT = useCallback(async (tokenId: string) => {
@@ -226,19 +247,25 @@ export function NFTProvider({ children }: NFTProviderProps) {
         return result;
     }, [state.listedNFTs, state.filters]);
 
-    // Auto-fetch on connection
+    // Auto-fetch on connection - only when isReady becomes true
     useEffect(() => {
-        if (contract.isReady) {
+        if (contract.isReady && !hasFetchedListed.current) {
             fetchListedNFTs();
         }
-    }, [contract.isReady, fetchListedNFTs]);
+    }, [contract.isReady]); // eslint-disable-line react-hooks/exhaustive-deps
 
     // Fetch owned NFTs when account changes
     useEffect(() => {
-        if (isConnected && account) {
+        if (isConnected && account && hasFetchedOwned.current !== account) {
             fetchOwnedNFTs();
         }
-    }, [isConnected, account, fetchOwnedNFTs]);
+    }, [isConnected, account]); // eslint-disable-line react-hooks/exhaustive-deps
+
+    // Reset fetch flags when chain changes
+    useEffect(() => {
+        hasFetchedListed.current = false;
+        hasFetchedOwned.current = null;
+    }, [chainId]);
 
     const value: NFTContextType = {
         ...state,

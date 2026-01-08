@@ -15,10 +15,13 @@ export default defineConfig({
             '@contracts': path.resolve(__dirname, './src/contracts'),
             '@types': path.resolve(__dirname, './src/types'),
             '@context': path.resolve(__dirname, './src/context'),
+            // Polyfills for Node.js modules
+            buffer: 'buffer/',
         },
     },
     define: {
         global: 'globalThis',
+        'process.env': {},
     },
     optimizeDeps: {
         esbuildOptions: {
@@ -26,6 +29,14 @@ export default defineConfig({
                 global: 'globalThis',
             },
         },
+        include: ['buffer'],
+    },
+    build: {
+        rollupOptions: {
+            plugins: [],
+        },
+        commonjsOptions: {
+            transformMixedEsModules: true,
+        },
     },
 })
-

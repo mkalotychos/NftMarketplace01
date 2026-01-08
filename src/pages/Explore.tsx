@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import { useState, useCallback } from 'react';
 import { Search, SlidersHorizontal, X, ChevronDown } from 'lucide-react';
 import { useNFTContext } from '../context/NFTContext';
 import { useWalletContext } from '../context/WalletContext';
@@ -29,6 +29,8 @@ export function Explore() {
         buyNFT,
         txState,
         resetTxState,
+        fetchListedNFTs,
+        fetchOwnedNFTs,
     } = useNFTContext();
     const { isConnected, chainId } = useWalletContext();
 
@@ -51,7 +53,12 @@ export function Explore() {
             return;
         }
         setBuyingTokenId(tokenId);
-        await buyNFT(tokenId, price);
+        const success = await buyNFT(tokenId, price);
+        if (success) {
+            // Refresh lists after successful purchase
+            fetchListedNFTs(true);
+            fetchOwnedNFTs(true);
+        }
     };
 
     // Close transaction modal
@@ -121,8 +128,8 @@ export function Explore() {
                                                 setShowSortDropdown(false);
                                             }}
                                             className={`w-full px-4 py-3 text-left text-sm transition-colors ${filters.sortBy === option.value
-                                                    ? 'bg-primary-500/20 text-primary-400'
-                                                    : 'text-surface-300 hover:bg-surface-800'
+                                                ? 'bg-primary-500/20 text-primary-400'
+                                                : 'text-surface-300 hover:bg-surface-800'
                                                 }`}
                                         >
                                             {option.label}
@@ -161,8 +168,8 @@ export function Explore() {
                                             key={option.value}
                                             onClick={() => setFilters({ status: option.value })}
                                             className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${filters.status === option.value
-                                                    ? 'bg-primary-500 text-white'
-                                                    : 'bg-surface-800 text-surface-300 hover:bg-surface-700'
+                                                ? 'bg-primary-500 text-white'
+                                                : 'bg-surface-800 text-surface-300 hover:bg-surface-700'
                                                 }`}
                                         >
                                             {option.label}

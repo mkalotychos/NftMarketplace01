@@ -9,6 +9,10 @@
         content="Discover, collect, and sell extraordinary NFTs on our decentralized marketplace" />
     <meta name="theme-color" content="#1e1b4b" />
 
+    <!-- CSP for web3 libraries that use eval - allows IPFS gateways -->
+    <meta http-equiv="Content-Security-Policy"
+        content="default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https: http: blob:; connect-src 'self' https: wss: http:;" />
+
     <!-- Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>

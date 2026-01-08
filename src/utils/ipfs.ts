@@ -20,6 +20,10 @@ export async function uploadFileToPinata(file: File): Promise<IPFSUploadResult> 
     const apiKey = import.meta.env.VITE_PINATA_API_KEY;
     const secretKey = import.meta.env.VITE_PINATA_SECRET_KEY;
 
+    console.log('🚀 Starting Pinata upload...');
+    console.log('📁 File:', file.name, 'Size:', file.size, 'Type:', file.type);
+    console.log('🔑 API Key exists:', !!apiKey, 'Secret exists:', !!secretKey);
+
     if (!apiKey || !secretKey) {
         throw new Error('Pinata API keys not configured');
     }
@@ -45,27 +49,38 @@ export async function uploadFileToPinata(file: File): Promise<IPFSUploadResult> 
     });
     formData.append('pinataMetadata', metadata);
 
-    const response = await fetch(`${PINATA_API_URL}/pinning/pinFileToIPFS`, {
-        method: 'POST',
-        headers: {
-            pinata_api_key: apiKey,
-            pinata_secret_api_key: secretKey,
-        },
-        body: formData,
-    });
+    console.log('📤 Sending request to Pinata...');
 
-    if (!response.ok) {
-        const error = await response.text();
-        throw new Error(`Failed to upload to Pinata: ${error}`);
+    try {
+        const response = await fetch(`${PINATA_API_URL}/pinning/pinFileToIPFS`, {
+            method: 'POST',
+            headers: {
+                pinata_api_key: apiKey,
+                pinata_secret_api_key: secretKey,
+            },
+            body: formData,
+        });
+
+        console.log('📥 Response status:', response.status, response.statusText);
+
+        if (!response.ok) {
+            const error = await response.text();
+            console.error('❌ Pinata error response:', error);
+            throw new Error(`Failed to upload to Pinata: ${error}`);
+        }
+
+        const result: PinataResponse = await response.json();
+        console.log('✅ Pinata upload successful! CID:', result.IpfsHash);
+
+        return {
+            cid: result.IpfsHash,
+            uri: `ipfs://${result.IpfsHash}`,
+            gatewayUrl: `${PINATA_GATEWAY}${result.IpfsHash}`,
+        };
+    } catch (error) {
+        console.error('❌ Pinata upload failed:', error);
+        throw error;
     }
-
-    const result: PinataResponse = await response.json();
-
-    return {
-        cid: result.IpfsHash,
-        uri: `ipfs://${result.IpfsHash}`,
-        gatewayUrl: `${PINATA_GATEWAY}${result.IpfsHash}`,
-    };
 }
 
 /**
@@ -77,37 +92,49 @@ export async function uploadMetadataToPinata(
     const apiKey = import.meta.env.VITE_PINATA_API_KEY;
     const secretKey = import.meta.env.VITE_PINATA_SECRET_KEY;
 
+    console.log('🚀 Starting metadata upload to Pinata...');
+    console.log('📝 Metadata:', metadata);
+
     if (!apiKey || !secretKey) {
         throw new Error('Pinata API keys not configured');
     }
 
-    const response = await fetch(`${PINATA_API_URL}/pinning/pinJSONToIPFS`, {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            pinata_api_key: apiKey,
-            pinata_secret_api_key: secretKey,
-        },
-        body: JSON.stringify({
-            pinataContent: metadata,
-            pinataMetadata: {
-                name: `${metadata.name}-metadata`,
+    try {
+        const response = await fetch(`${PINATA_API_URL}/pinning/pinJSONToIPFS`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                pinata_api_key: apiKey,
+                pinata_secret_api_key: secretKey,
             },
-        }),
-    });
+            body: JSON.stringify({
+                pinataContent: metadata,
+                pinataMetadata: {
+                    name: `${metadata.name}-metadata`,
+                },
+            }),
+        });
 
-    if (!response.ok) {
-        const error = await response.text();
-        throw new Error(`Failed to upload metadata to Pinata: ${error}`);
+        console.log('📥 Metadata response status:', response.status, response.statusText);
+
+        if (!response.ok) {
+            const error = await response.text();
+            console.error('❌ Metadata upload error:', error);
+            throw new Error(`Failed to upload metadata to Pinata: ${error}`);
+        }
+
+        const result: PinataResponse = await response.json();
+        console.log('✅ Metadata upload successful! CID:', result.IpfsHash);
+
+        return {
+            cid: result.IpfsHash,
+            uri: `ipfs://${result.IpfsHash}`,
+            gatewayUrl: `${PINATA_GATEWAY}${result.IpfsHash}`,
+        };
+    } catch (error) {
+        console.error('❌ Metadata upload failed:', error);
+        throw error;
     }
-
-    const result: PinataResponse = await response.json();
-
-    return {
-        cid: result.IpfsHash,
-        uri: `ipfs://${result.IpfsHash}`,
-        gatewayUrl: `${PINATA_GATEWAY}${result.IpfsHash}`,
-    };
 }
 
 /**

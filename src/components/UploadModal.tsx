@@ -3,7 +3,6 @@ import {
     X,
     Upload,
     Image as ImageIcon,
-    FileText,
     Loader2,
     CheckCircle2,
     AlertCircle,
@@ -22,7 +21,7 @@ interface UploadModalProps {
 type UploadStep = 'form' | 'uploading' | 'minting' | 'success' | 'error';
 
 export function UploadModal({ isOpen, onClose }: UploadModalProps) {
-    const { mintAndList, mintNFT, txState, resetTxState, fetchListedNFTs } = useNFTContext();
+    const { mintAndList, mintNFT, txState, resetTxState, fetchListedNFTs, fetchOwnedNFTs } = useNFTContext();
     const { chainId } = useWalletContext();
     const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -136,7 +135,9 @@ export function UploadModal({ isOpen, onClose }: UploadModalProps) {
                 setMintedTokenId(tokenId);
                 setTxHash(txState.hash || '');
                 setStep('success');
-                fetchListedNFTs(); // Refresh the NFT list
+                // Force refresh NFT lists after successful mint
+                fetchListedNFTs(true);
+                fetchOwnedNFTs(true);
             } else {
                 throw new Error(txState.error || 'Minting failed');
             }
@@ -188,8 +189,8 @@ export function UploadModal({ isOpen, onClose }: UploadModalProps) {
                                 onDragOver={(e) => e.preventDefault()}
                                 onClick={() => fileInputRef.current?.click()}
                                 className={`relative border-2 border-dashed rounded-xl p-6 text-center cursor-pointer transition-all ${preview
-                                        ? 'border-primary-500 bg-primary-500/5'
-                                        : 'border-surface-600 hover:border-primary-500/50 hover:bg-surface-800/50'
+                                    ? 'border-primary-500 bg-primary-500/5'
+                                    : 'border-surface-600 hover:border-primary-500/50 hover:bg-surface-800/50'
                                     }`}
                             >
                                 <input

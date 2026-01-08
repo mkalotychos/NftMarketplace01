@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { Wallet, Image as ImageIcon, Tag, Plus } from 'lucide-react';
 import { useWalletContext } from '../context/WalletContext';
 import { useNFTContext } from '../context/NFTContext';
@@ -9,12 +9,10 @@ import {
     EmptyState,
     TransactionModal,
 } from '../components';
-import type { NFT, ListedNFT, Listing } from '../types';
 
 type Tab = 'owned' | 'listed';
 
 export function MyNFTs() {
-    const navigate = useNavigate();
     const { account, isConnected, chainId, connect } = useWalletContext();
     const {
         ownedNFTs,
@@ -45,12 +43,8 @@ export function MyNFTs() {
             !myListedNFTs.some((listed) => listed.tokenId === nft.tokenId)
     );
 
-    // Refresh owned NFTs when account changes
-    useEffect(() => {
-        if (isConnected && account) {
-            fetchOwnedNFTs();
-        }
-    }, [isConnected, account, fetchOwnedNFTs]);
+    // Refresh owned NFTs when account changes (handled by NFTContext now)
+    // No need for manual fetch here as context handles it
 
     // Handle listing an NFT
     const handleList = async (tokenId: string) => {
@@ -73,17 +67,17 @@ export function MyNFTs() {
         resetTxState();
         await listNFT(listingTokenId, listingPrice);
 
-        // Reset
+        // Reset and refresh
         setListingTokenId(null);
         setListingPrice('');
-        fetchOwnedNFTs();
+        fetchOwnedNFTs(true); // Force refresh after listing
     };
 
     // Handle delisting
     const handleDelist = async (tokenId: string) => {
         setActionTokenId(tokenId);
         await delistNFT(tokenId);
-        fetchOwnedNFTs();
+        fetchOwnedNFTs(true); // Force refresh after delisting
     };
 
     // Close modal
@@ -163,8 +157,8 @@ export function MyNFTs() {
                     <button
                         onClick={() => setActiveTab('owned')}
                         className={`px-6 py-3 text-sm font-medium transition-colors relative ${activeTab === 'owned'
-                                ? 'text-primary-400'
-                                : 'text-surface-400 hover:text-white'
+                            ? 'text-primary-400'
+                            : 'text-surface-400 hover:text-white'
                             }`}
                     >
                         <div className="flex items-center gap-2">
@@ -178,8 +172,8 @@ export function MyNFTs() {
                     <button
                         onClick={() => setActiveTab('listed')}
                         className={`px-6 py-3 text-sm font-medium transition-colors relative ${activeTab === 'listed'
-                                ? 'text-primary-400'
-                                : 'text-surface-400 hover:text-white'
+                            ? 'text-primary-400'
+                            : 'text-surface-400 hover:text-white'
                             }`}
                     >
                         <div className="flex items-center gap-2">
